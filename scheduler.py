@@ -1,20 +1,37 @@
-from apscheduler.schedulers.blocking import BlockingScheduler
 from agent import run_agent
 from report import send_report_email, check_and_send_alerts
+from whatsapp_formatter import send_morning_brief
+import logging, os
+
+log = logging.getLogger(__name__)
 
 def daily_job():
-    print("Starting daily solar intelligence run...")
-    report = run_agent()
-    send_report_email(report)
-    check_and_send_alerts(report)
-    print("Done.")
+    log.info("Starting daily solar intelligence run...")
+    try:
+        report = run_agent()
 
-scheduler = BlockingScheduler()
-scheduler.add_job(daily_job, "cron", hour=7, minute=0)
+        # --- Email (keep as backup) ---
+        send_report_email(report)
 
-print("Solar agent scheduler started. Running daily at 7:00 AM.")
-scheduler.start()
+        # --- WhatsApp (primary delivery) ---
+        send_morning_brief(report)
+        
+        # --- Alerts via WhatsApp ---
+        check_and_send_whatsapp_alerts(report)
 
-# ---- OR use cron (Linux/Mac) ----
-# Add to crontab with: crontab -e
-# 0 7 * * * /path/to/venv/bin/python /path/to/solar-agent/agent.py >> /path/to/logs/agent.log 2>&1
+        log.info("Daily run complete. Report sent via WhatsApp + Email.")
+
+    except Exception as e:
+        log.error(f"Agent failed: {e}")
+        # Send failure alert to WhatsApp
+        from whatsapp import send_whatsapp
+        send_whatsapp(f"AGENT ERROR at {__import__('datetime').datetime.now()}\n{str(e)}")
+
+def check_and_send_whatsapp_alerts(report: str):
+    """Send instant WhatsApp alert if critical change detected."""
+    from whatsapp import send_whatsapp
+    if "ALERT TYPE:" in report:
+        lines = [l for l in report.split("\n") if "ALERT" in l.upper()]
+        alert_text = "*CRITICAL ALERT*\n" + "\n".join(lines[:8])
+        send_whatsapp(alert_text)
+        log.info("Alert sent via WhatsApp.")
