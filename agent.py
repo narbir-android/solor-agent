@@ -1,12 +1,16 @@
-import anthropic
 import json
 import os
+import urllib.request
 from datetime import date
 from dotenv import load_dotenv
 
 load_dotenv()
 
-client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_URL = (
+    "https://generativelanguage.googleapis.com/v1beta/models/"
+    "gemini-1.5-flash:generateContent?key=" + (GEMINI_API_KEY or "")
+)
 
 SYSTEM_PROMPT = (
     "You are an advanced market intelligence AI for the US solar industry. "
@@ -36,6 +40,27 @@ SYSTEM_PROMPT = (
 )
 
 
+def call_gemini(prompt):
+    payload = json.dumps({
+        "contents": [{
+            "parts": [{
+                "text": SYSTEM_PROMPT + "\n\n" + prompt
+            }]
+        }]
+    }).encode("utf-8")
+
+    req = urllib.request.Request(
+        GEMINI_URL,
+        data=payload,
+        headers={"Content-Type": "application/json"},
+        method="POST"
+    )
+
+    with urllib.request.urlopen(req) as response:
+        result = json.loads(response.read().decode("utf-8"))
+        return result["candidates"][0]["content"]["parts"][0]["text"]
+
+
 def build_user_message(raw_data, yesterday, history):
     return (
         "TODAY DATA:\n"
@@ -60,17 +85,9 @@ def run_agent():
     history = get_history(days=7)
 
     print("Running AI analysis...")
-    message = client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=4000,
-        system=SYSTEM_PROMPT,
-        messages=[{
-            "role": "user",
-            "content": build_user_message(raw_data, yesterday, history)
-        }]
+    report_text = call_gemini(
+        build_user_message(raw_data, yesterday, history)
     )
-
-    report_text = message.content[0].text
     print("Report generated.")
 
     os.makedirs("data", exist_ok=True)
