@@ -61,13 +61,13 @@ ist = pytz.timezone("Asia/Kolkata")
 scheduler = BlockingScheduler()
 
 # Production: every day at 7am IST
-scheduler.add_job(
-    daily_job,
-    CronTrigger(hour=7, minute=0, timezone=ist)
-)
+# scheduler.add_job(
+#     daily_job,
+#     CronTrigger(hour=7, minute=0, timezone=ist)
+# )
 
 # For testing uncomment this and comment the line above:
-# scheduler.add_job(daily_job, "interval", minutes=1)
+scheduler.add_job(daily_job, "interval", minutes=1)
 
 log.info("Scheduler started. Running daily at 7:00 AM IST.")
 scheduler.start()
