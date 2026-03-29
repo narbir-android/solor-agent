@@ -1,5 +1,7 @@
 import logging
 from apscheduler.schedulers.blocking import BlockingScheduler
+from apscheduler.triggers.cron import CronTrigger
+import pytz
 
 logging.basicConfig(
     level=logging.INFO,
@@ -39,13 +41,14 @@ def daily_job():
             pass
 
 
+# IST = UTC+5:30 → 7am IST = 1:30am UTC
+ist = pytz.timezone("Asia/Kolkata")
+
 scheduler = BlockingScheduler()
+scheduler.add_job(
+    daily_job,
+    CronTrigger(hour=7, minute=0, timezone=ist)
+)
 
-# Every 1 minute for testing
-scheduler.add_job(daily_job, "interval", minutes=1)
-
-# Switch to this when ready for production (daily at 7am):
-# scheduler.add_job(daily_job, "cron", hour=7, minute=0)
-
-log.info("Scheduler started. Running every 1 minute.")
+log.info("Scheduler started. Running daily at 7:00 AM IST.")
 scheduler.start()
