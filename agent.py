@@ -7,32 +7,59 @@ load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
 GEMINI_URL = (
     "https://generativelanguage.googleapis.com/v1beta/models/"
-    "gemini-1.5-flash-latest:generateContent?key=" + GEMINI_API_KEY
+    "gemini-2.5-flash-lite:generateContent?key=" + GEMINI_API_KEY
 )
 
+
+
 SYSTEM_PROMPT = (
-    "You are an advanced market intelligence AI for the US solar industry. "
-    "Produce a daily report with exactly 8 sections.\n\n"
+    "You are an advanced market intelligence AI specialized in the US solar "
+    "pre-installation and services industry. This includes companies providing: "
+    "site surveys, plan sets, PE stamps, permitting, PTO (Permission to Operate), "
+    "interconnection applications, HOA approvals, and utility coordination.\n\n"
+
     "RULES:\n"
     "- Be concise but highly insightful.\n"
     "- Only flag meaningful changes vs yesterday.\n"
-    "- Alerts must be rare but high-value.\n\n"
+    "- Alerts must be rare but high-value.\n"
+    "- Focus on pricing, turnaround time, and service quality differences.\n\n"
+
     "OUTPUT SECTIONS:\n"
-    "### 1. US Solar Industry Update\n"
-    "- Key news bullets, market trend, top risk or opportunity\n\n"
+
+    "### 1. US Solar Services Industry Update\n"
+    "- Key news affecting permitting, PTO, surveys, plan sets\n"
+    "- Regulatory changes impacting pre-installation services\n"
+    "- Top opportunity or risk for solar service providers\n\n"
+
     "### 2. Competitor Analysis\n"
-    "- Name, Pricing, Services, Recent Updates, Customer Perception\n\n"
+    "For each competitor provide:\n"
+    "- Name | Service type | Pricing | Turnaround time | Recent updates\n\n"
+
     "### 3. Competitive Insights\n"
-    "- Why competitors perform better, their strategies, gaps in our offering\n\n"
+    "- Why competitors are winning (speed, price, technology)\n"
+    "- Strategies they are using\n"
+    "- Gaps in our offering\n\n"
+
     "### 4. Actionable Recommendations\n"
-    "- 3 to 5 specific business-impact actions\n\n"
+    "- 3 to 5 specific actions to improve our solar services business\n"
+    "- Focus on turnaround time, pricing, automation, customer experience\n\n"
+
     "### 5. Trend Analysis\n"
-    "- Changes vs previous reports, pricing trends, growth signals, 30-day prediction\n\n"
+    "- Changes in permitting timelines across US states\n"
+    "- PTO approval rate trends\n"
+    "- Technology adoption in plan sets and PE stamps\n"
+    "- 30-day market direction prediction\n\n"
+
     "### 6. Competitor Scoring\n"
-    "- Rank each competitor 0-10 on price, service, market presence, sentiment\n\n"
+    "Rank each competitor 0-10 on:\n"
+    "- Price competitiveness | Turnaround speed | Service quality | "
+    "Technology | Customer satisfaction\n\n"
+
     "### 7. Alerts\n"
-    "- Only for price drops, new services, sentiment shifts, aggressive moves\n"
+    "- Only for: major price drops, new service launches, "
+    "regulatory changes affecting permits/PTO, aggressive competitor moves\n"
     "- If none write: No critical alerts today.\n\n"
+
     "### 8. Quick Summary TL;DR\n"
     "- Max 3 bullet points, most critical insights only."
 )
@@ -60,18 +87,16 @@ def call_gemini(prompt):
         with urllib.request.urlopen(req) as response:
             result = json.loads(response.read().decode("utf-8"))
             return result["candidates"][0]["content"]["parts"][0]["text"]
-    except urllib.error.HTTPError as e:
-        error_body = e.read().decode("utf-8")
-        raise Exception("Gemini error " + str(e.code) + ": " + error_body)
-def build_user_message(raw_data, yesterday, history):
+    except Exception as e:
+        raise Exception(f"Gemini error: {e}")
+
+def build_user_message(raw_data):
     return (
         "TODAY DATA:\n"
         + json.dumps(raw_data.get("news", []), indent=2)
         + "\n\nCOMPETITORS:\n"
         + json.dumps(raw_data.get("competitors", []), indent=2)
-        + "\n\nYESTERDAY SUMMARY:\n"
-        + json.dumps(yesterday.get("summary", "No previous report."), indent=2)
-        + "\n\nProduce the full 8-section report now."
+        + "\n\nProduce the full analyst report now including the comparison table and WhatsApp summary."
     )
 def run_agent():
     from scraper import collect_all_data
@@ -81,9 +106,8 @@ def run_agent():
     print("Loading memory...")
     yesterday = get_yesterday_report()
     history = get_history(days=7)
-    print("Running AI analysis...")
     report_text = call_gemini(
-        build_user_message(raw_data, yesterday, history)
+        build_user_message(raw_data)
     )
     print("Report generated.")
     os.makedirs("data", exist_ok=True)

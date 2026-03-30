@@ -1,0 +1,29 @@
+.App {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 4rem 2rem;
+  text-align: center;
+}
+
+header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  margin-bottom: 4rem;
+}
+
+.report-container {
+  white-space: pre-wrap;
+  text-align: left;
+  line-height: 1.6;
+}
+
+p {
+  margin: 0.2rem 0;
+}
+
+/* Base style reset for App specific overrides */
+* {
+  box-sizing: border-box;
+}
