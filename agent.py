@@ -1,15 +1,14 @@
 import json
 import os
 import urllib.request
-import urllib.error
 from datetime import date
 from dotenv import load_dotenv
-
 load_dotenv()
-
-GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
-GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
-
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
+GEMINI_URL = (
+    "https://generativelanguage.googleapis.com/v1beta/models/"
+    "gemini-1.5-flash:generateContent?key=" + GEMINI_API_KEY
+)
 SYSTEM_PROMPT = (
     "You are an advanced market intelligence AI for the US solar industry. "
     "Produce a daily report with exactly 8 sections.\n\n"
@@ -36,37 +35,33 @@ SYSTEM_PROMPT = (
     "### 8. Quick Summary TL;DR\n"
     "- Max 3 bullet points, most critical insights only."
 )
-
-
-def call_groq(prompt):
+def call_gemini(prompt):
     payload = json.dumps({
-        "model": "llama3-8b-8192",
-        "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": prompt}
-        ],
-        "max_tokens": 4000
-    }).encode("utf-8")
-
-    req = urllib.request.Request(
-        GROQ_URL,
-        data=payload,
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": "Bearer " + GROQ_API_KEY
+        "system_instruction": {
+            "parts": [{"text": SYSTEM_PROMPT}]
         },
+        "contents": [{
+            "role": "user",
+            "parts": [{"text": prompt}]
+        }],
+        "generationConfig": {
+            "maxOutputTokens": 4000,
+            "temperature": 0.7
+        }
+    }).encode("utf-8")
+    req = urllib.request.Request(
+        GEMINI_URL,
+        data=payload,
+        headers={"Content-Type": "application/json"},
         method="POST"
     )
-
     try:
         with urllib.request.urlopen(req) as response:
             result = json.loads(response.read().decode("utf-8"))
-            return result["choices"][0]["message"]["content"]
+            return result["candidates"][0]["content"]["parts"][0]["text"]
     except urllib.error.HTTPError as e:
         error_body = e.read().decode("utf-8")
-        raise Exception("Groq error " + str(e.code) + ": " + error_body)
-
-
+        raise Exception("Gemini error " + str(e.code) + ": " + error_body)
 def build_user_message(raw_data, yesterday, history):
     return (
         "TODAY DATA:\n"
@@ -77,41 +72,33 @@ def build_user_message(raw_data, yesterday, history):
         + json.dumps(yesterday.get("summary", "No previous report."), indent=2)
         + "\n\nProduce the full 8-section report now."
     )
-
-
 def run_agent():
     from scraper import collect_all_data
     from memory import get_yesterday_report, get_history, save_report
-
     print("Fetching live data...")
     raw_data = collect_all_data()
-
     print("Loading memory...")
     yesterday = get_yesterday_report()
     history = get_history(days=7)
-
     print("Running AI analysis...")
-    report_text = call_groq(
+    report_text = call_gemini(
         build_user_message(raw_data, yesterday, history)
     )
     print("Report generated.")
-
     os.makedirs("data", exist_ok=True)
     os.makedirs("reports", exist_ok=True)
     os.makedirs("logs", exist_ok=True)
-
     save_report({
         "raw": raw_data,
         "report": report_text,
         "summary": report_text[:500]
     })
-
     with open("reports/report_" + str(date.today()) + ".md", "w") as f:
         f.write(report_text)
-
     print("Done.")
     return report_text
-
-
 if __name__ == "__main__":
     print(run_agent())
+
+
+i ahve this fix and update in this
