@@ -12,10 +12,7 @@ log = logging.getLogger(__name__)
 
 
 def clean_text(text):
-    """Remove control characters that WhatsApp rejects."""
-    # Remove all control characters except newline and tab
     text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', text)
-    # Normalize multiple newlines
     text = re.sub(r'\n{3,}', '\n\n', text)
     return text.strip()
 
@@ -26,16 +23,19 @@ def daily_job():
         from agent import run_agent
         report = run_agent()
 
-        # Clean text before sending
         safe_report = clean_text(report)
         preview = clean_text("*Solar Agent Report*\n\n" + safe_report[:400])
 
         try:
             from whatsapp import send_whatsapp
+            # ✅ CHANGE 1 — log the message before sending
+            log.info("Sending WhatsApp message:\n" + preview)
             send_whatsapp(preview)
             log.info("WhatsApp sent.")
         except Exception as e:
+            # ✅ CHANGE 2 — log the failed message too
             log.error("WhatsApp failed: " + str(e))
+            log.error("Failed message was:\n" + preview)
 
         try:
             from report import send_report_email
@@ -50,24 +50,22 @@ def daily_job():
         log.error("Agent failed: " + str(e))
         try:
             from whatsapp import send_whatsapp
-            send_whatsapp("AGENT ERROR:\n" + str(e))
+            error_msg = clean_text("AGENT ERROR:\n" + str(e))
+            # ✅ CHANGE 3 — log error message before sending
+            log.info("Sending error WhatsApp:\n" + error_msg)
+            send_whatsapp(error_msg)
         except Exception:
             pass
 
 
-# IST = UTC+5:30 → 7am IST = 1:30am UTC
 ist = pytz.timezone("Asia/Kolkata")
-
 scheduler = BlockingScheduler()
 
-# Production: every day at 7am IST
-# scheduler.add_job(
-#     daily_job,
-#     CronTrigger(hour=7, minute=0, timezone=ist)
-# )
-
-# For testing uncomment this and comment the line above:
+# TESTING — every 1 minute
 scheduler.add_job(daily_job, "interval", minutes=1)
 
-log.info("Scheduler started. Running daily at 7:00 AM IST.")
+# PRODUCTION — uncomment when ready
+# scheduler.add_job(daily_job, CronTrigger(hour=7, minute=0, timezone=ist))
+
+log.info("Scheduler started. Running every 1 minute.")
 scheduler.start()
