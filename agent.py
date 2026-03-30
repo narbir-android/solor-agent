@@ -42,11 +42,17 @@ SYSTEM_PROMPT = (
 
 def call_gemini(prompt):
     payload = json.dumps({
+        "system_instruction": {
+            "parts": [{"text": SYSTEM_PROMPT}]
+        },
         "contents": [{
-            "parts": [{
-                "text": SYSTEM_PROMPT + "\n\n" + prompt
-            }]
-        }]
+            "role": "user",
+            "parts": [{"text": prompt}]
+        }],
+        "generationConfig": {
+            "maxOutputTokens": 4000,
+            "temperature": 0.7
+        }
     }).encode("utf-8")
 
     req = urllib.request.Request(
@@ -56,9 +62,13 @@ def call_gemini(prompt):
         method="POST"
     )
 
-    with urllib.request.urlopen(req) as response:
-        result = json.loads(response.read().decode("utf-8"))
-        return result["candidates"][0]["content"]["parts"][0]["text"]
+    try:
+        with urllib.request.urlopen(req) as response:
+            result = json.loads(response.read().decode("utf-8"))
+            return result["candidates"][0]["content"]["parts"][0]["text"]
+    except urllib.error.HTTPError as e:
+        error_body = e.read().decode("utf-8")
+        raise Exception("Gemini error " + str(e.code) + ": " + error_body)
 
 
 def build_user_message(raw_data, yesterday, history):
