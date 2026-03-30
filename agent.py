@@ -1,16 +1,14 @@
 import json
 import os
 import urllib.request
+import urllib.error
 from datetime import date
 from dotenv import load_dotenv
 
 load_dotenv()
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
-GEMINI_URL = (
-    "https://generativelanguage.googleapis.com/v1beta/models/"
-    "gemini-1.5-flash:generateContent?key=" + GEMINI_API_KEY
-)
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
+GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 SYSTEM_PROMPT = (
     "You are an advanced market intelligence AI for the US solar industry. "
@@ -40,35 +38,33 @@ SYSTEM_PROMPT = (
 )
 
 
-def call_gemini(prompt):
+def call_groq(prompt):
     payload = json.dumps({
-        "system_instruction": {
-            "parts": [{"text": SYSTEM_PROMPT}]
-        },
-        "contents": [{
-            "role": "user",
-            "parts": [{"text": prompt}]
-        }],
-        "generationConfig": {
-            "maxOutputTokens": 4000,
-            "temperature": 0.7
-        }
+        "model": "llama3-8b-8192",
+        "messages": [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": prompt}
+        ],
+        "max_tokens": 4000
     }).encode("utf-8")
 
     req = urllib.request.Request(
-        GEMINI_URL,
+        GROQ_URL,
         data=payload,
-        headers={"Content-Type": "application/json"},
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + GROQ_API_KEY
+        },
         method="POST"
     )
 
     try:
         with urllib.request.urlopen(req) as response:
             result = json.loads(response.read().decode("utf-8"))
-            return result["candidates"][0]["content"]["parts"][0]["text"]
+            return result["choices"][0]["message"]["content"]
     except urllib.error.HTTPError as e:
         error_body = e.read().decode("utf-8")
-        raise Exception("Gemini error " + str(e.code) + ": " + error_body)
+        raise Exception("Groq error " + str(e.code) + ": " + error_body)
 
 
 def build_user_message(raw_data, yesterday, history):
@@ -95,7 +91,7 @@ def run_agent():
     history = get_history(days=7)
 
     print("Running AI analysis...")
-    report_text = call_gemini(
+    report_text = call_groq(
         build_user_message(raw_data, yesterday, history)
     )
     print("Report generated.")
