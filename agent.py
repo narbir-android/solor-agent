@@ -7,8 +7,9 @@ load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
 GEMINI_URL = (
     "https://generativelanguage.googleapis.com/v1beta/models/"
-    "gemini-1.5-flash:generateContent?key=" + GEMINI_API_KEY
+    "gemini-1.5-flash-latest:generateContent?key=" + GEMINI_API_KEY
 )
+
 SYSTEM_PROMPT = (
     "You are an advanced market intelligence AI for the US solar industry. "
     "Produce a daily report with exactly 8 sections.\n\n"
@@ -99,6 +100,3 @@ def run_agent():
     return report_text
 if __name__ == "__main__":
     print(run_agent())
-
-
-i ahve this fix and update in this
