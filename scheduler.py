@@ -26,17 +26,24 @@ def daily_job():
         safe_report = clean_text(report)
         preview = clean_text("*Solar Agent Report*\n\n" + safe_report[:400])
 
+        # ── Telegram ──────────────────────────────
+        try:
+            from telegram_sender import send_telegram
+            log.info("Sending Telegram message:\n" + preview)
+            send_telegram(safe_report)
+            log.info("Telegram sent.")
+        except Exception as e:
+            log.error("Telegram failed: " + str(e))
+
+        # ── WhatsApp (optional backup) ────────────
         try:
             from whatsapp import send_whatsapp
-            # ✅ CHANGE 1 — log the message before sending
-            log.info("Sending WhatsApp message:\n" + preview)
             send_whatsapp(preview)
             log.info("WhatsApp sent.")
         except Exception as e:
-            # ✅ CHANGE 2 — log the failed message too
             log.error("WhatsApp failed: " + str(e))
-            log.error("Failed message was:\n" + preview)
 
+        # ── Email (optional backup) ───────────────
         try:
             from report import send_report_email
             send_report_email(report)
@@ -49,11 +56,8 @@ def daily_job():
     except Exception as e:
         log.error("Agent failed: " + str(e))
         try:
-            from whatsapp import send_whatsapp
-            error_msg = clean_text("AGENT ERROR:\n" + str(e))
-            # ✅ CHANGE 3 — log error message before sending
-            log.info("Sending error WhatsApp:\n" + error_msg)
-            send_whatsapp(error_msg)
+            from telegram_sender import send_telegram
+            send_telegram("AGENT ERROR:\n" + str(e))
         except Exception:
             pass
 
